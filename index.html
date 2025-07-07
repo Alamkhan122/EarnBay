@@ -1,0 +1,473 @@
+<!-- Earn Bay - Single Page with Admin Panel (Connected) --><!DOCTYPE html><html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>PKR Earn Bay</title>
+  <style>
+    body { font-family: "Segoe UI", sans-serif; margin: 0; background: #f0f2f5; }
+    header { background: #075E54; color: white; padding: 10px 20px; font-size: 20px; display: flex; justify-content: space-between; align-items: center; }
+    header img { height: 30px; border-radius: 50%; }
+    nav { display: flex; justify-content: space-around; background: #fff; position: fixed; bottom: 0; width: 100%; border-top: 1px solid #ccc; z-index: 100; }
+    nav button { flex: 1; padding: 10px; font-size: 14px; border: none; background: none; }
+    .active { color: #075E54; font-weight: bold; }
+    .section { display: none; padding: 20px; padding-bottom: 100px; }
+    .section.active { display: block; }
+    .card { background: #fff; padding: 15px; border-radius: 10px; margin-bottom: 15px; box-shadow: 0 1px 5px rgba(0,0,0,0.1); }
+    .btn { background: #075E54; color: #fff; border: none; padding: 8px 12px; border-radius: 8px; cursor: pointer; }
+    .btn[disabled] { opacity: 0.6; cursor: not-allowed; }
+    input, select { width: 100%; padding: 10px; margin-top: 8px; border: 1px solid #ccc; border-radius: 8px; }
+    .plan h4 { margin: 5px 0; color: #075E54; }
+    .plan p { margin: 3px 0; font-size: 14px; }
+    /* Admin styles */
+    .tabs { display: flex; gap: 10px; margin-bottom: 15px; }
+    .tabs button { flex: 1; background: #eee; border-radius: 6px; }
+    .tabs button.active { background: #075E54; color: #fff; }
+    .accept { background: #28a745 !important; }
+    .reject { background: #dc3545 !important; }
+    .status { font-size: 14px; margin-top: 5px; }
+    @media(max-width:480px){ header{font-size:18px;} }
+  #auth-section input {
+  width: 100%;
+  padding: 10px;
+  margin-top: 10px;
+  border-radius: 8px;
+  border: 1px solid #ccc;
+}
+  </style>
+</head>
+<body>
+  <!-- LOGIN / SIGNUP SECTION -->
+<div id="auth-section" style="padding: 20px;">
+  <h2 id="auth-title">Login</h2>
+  <input type="text" id="auth-username" placeholder="Username" />
+  <input type="password" id="auth-password" placeholder="Password" />
+  <button class="btn" onclick="handleAuth()">Login</button>
+  <p style="margin-top: 10px;">
+    <span id="toggle-auth" style="color:#075E54; cursor:pointer;" onclick="toggleAuthMode()">Don't have an account? Sign up</span>
+  </p>
+</div>
+  <!-- MAIN APP CONTENT -->
+<div id="main-app" style="display: none;">
+<header>
+  <span>Earn Bay</span>
+  <img src="https://upload.wikimedia.org/wikipedia/commons/6/6b/WhatsApp.svg" alt="Logo" />
+  <button onclick="logout()" class="btn" style="margin-left: auto;">Logout</button>
+</header><!-- USER SECTIONS --><div id="dashboard" class="section active">
+  <div class="card">
+    <h3>Account Balance: ₨<span id="balance">0.00</span></h3>
+  </div>
+  <div>
+    <h3 style="padding: 0 15px;">Investment Plans</h3>
+    <div id="plansContainer"></div>
+  </div>
+</div><div id="tasks" class="section">
+  <div id="tasksContainer"></div>
+</div><div id="earnings" class="section">
+  <div class="card">
+  <h3>Plan History</h3>
+  <ul id="planHistory"></ul>
+</div>
+
+<div class="card">
+  <h3>Withdrawal History</h3>
+  <ul id="withdrawHistory"></ul>
+</div>
+</div><div id="withdraw" class="section">
+  <div class="card">
+    <h3>Withdraw</h3>
+    <p style="color: red; font-size: 14px;">Note: Withdrawal fee is 4% and minimum withdrawal is PKR 300.</p>
+    <select id="method"><option value="JazzCash">JazzCash</option><option value="Easypaisa">Easypaisa</option></select>
+    <input type="text" id="accountNumber" placeholder="Account Number" />
+    <input type="text" id="accountName" placeholder="Account Name" />
+    <input type="number" id="withdrawAmount" placeholder="Amount" />
+    <button class="btn" onclick="submitWithdraw()">Submit</button>
+    <p id="withdrawMsg" style="color: green; display:none; margin-top:10px;">Request submitted!</p>
+  </div>
+</div><!-- ADMIN SECTION --><div id="admin" class="section">
+  <div class="tabs">
+    <button onclick="switchAdminTab('planTab')" class="active">Plan Requests</button>
+    <button onclick="switchAdminTab('withdrawTab')">Withdrawal Requests</button>
+  </div>
+  <div id="planTab" class="adminTab"></div>
+  <div id="withdrawTab" class="adminTab" style="display:none;"></div>
+</div><!-- BUY PLAN MODAL --><div id="buyModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:999; justify-content:center; align-items:center;">
+  <div class="card" style="max-width:400px; width:90%; text-align:center;">
+    <h3>Plan Purchase</h3>
+    <p id="buyText"></p>
+    <input type="text" id="trxInput" placeholder="Enter Transaction ID" />
+    <div style="margin-top:15px;">
+      <button class="btn" onclick="confirmBuy()">Submit</button>
+      <button class="btn" style="background:#ccc; color:#000;" onclick="closeBuyModal()">Cancel</button>
+    </div>
+  </div>
+  </div> <!-- End of main-app -->
+<!-- NAVIGATION BAR -->
+  <nav>
+  <button onclick="showTab('dashboard')" class="active">Dashboard</button>
+  <button onclick="showTab('tasks')">Tasks</button>
+  <button onclick="showTab('earnings')">My Plans</button>
+  <button onclick="showTab('withdraw')">Withdraw</button>
+</nav><script>
+// ======================[ STORAGE & INITIAL STATE ]======================
+  let balance = 0;
+const currentUser = localStorage.getItem("currentUser");
+
+function getUserKey(key) {
+  const user = localStorage.getItem("currentUser");
+  return `${key}_${user}`;
+}
+
+
+
+const plans = [
+  { name: "Plan 1", investment: 500, daily: 34 },
+  { name: "Plan 2", investment: 1000, daily: 70 },
+  { name: "Plan 3", investment: 1500, daily: 105 },
+  { name: "Plan 4", investment: 2000, daily: 140 },
+  { name: "Plan 5", investment: 3000, daily: 210 },
+  { name: "Plan 6", investment: 4000, daily: 280 },
+  { name: "Plan 7", investment: 5000, daily: 350 },
+  { name: "Plan 8", investment: 6000, daily: 420 },
+  { name: "Plan 9", investment: 8000, daily: 560 },
+  { name: "Plan 10", investment: 10000, daily: 700 },
+];
+
+let history = JSON.parse(localStorage.getItem(getUserKey("history")) || "[]");
+let planRequests = JSON.parse(localStorage.getItem(getUserKey("planRequests")) || "[]");
+let withdrawRequests = JSON.parse(localStorage.getItem(getUserKey("withdrawRequests")) || "[]");
+let lastClaimTimes = JSON.parse(localStorage.getItem(getUserKey("lastClaimTimes")) || "{}");
+  
+// ======================[ HELPER: Save to LS & Trigger Storage Event ]======================
+function saveToLS(key, value){
+  const fullKey = getUserKey(key);
+  localStorage.setItem(fullKey, JSON.stringify(value));
+  window.dispatchEvent(new StorageEvent('storage', {key: fullKey, newValue: JSON.stringify(value)}));
+}
+
+// ======================[ NAVIGATION ]======================
+function showTab(id){
+  document.querySelectorAll('.section').forEach(sec=>sec.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  document.querySelectorAll('nav button').forEach(btn=>btn.classList.remove('active'));
+  event.target.classList.add('active');
+  if(id==='tasks') renderTasks();
+  if(id==='admin') {
+  renderAdminPlans();
+  renderAdminWithdrawals();
+}
+if(id==='earnings') {
+  renderEarnings();
+}
+}
+
+function switchAdminTab(tab){
+  document.querySelectorAll('.adminTab').forEach(t=>t.style.display='none');
+  document.getElementById(tab).style.display='block';
+  document.querySelectorAll('.tabs button').forEach(btn=>btn.classList.remove('active'));
+  event.target.classList.add('active');
+}
+
+// ======================[ USER: Render Plans on Dashboard ]======================
+function renderPlans(){
+  const container = document.getElementById('plansContainer');
+  container.innerHTML='';
+  plans.forEach(pl=>{
+    const div=document.createElement('div');
+    div.className='card';
+    div.innerHTML=`<div class="plan">
+      <h4>${pl.name}</h4>
+      <p>Investment: ₨${pl.investment}</p>
+      <p>Daily: ₨${pl.daily} | 30 Days</p>
+      <button class="btn" onclick="buyPlan('${pl.name}', ${pl.investment}, ${pl.daily})">Buy Now</button>
+    </div>`;
+    container.appendChild(div);
+  });
+}
+
+// ======================[ BUY PLAN MODAL ]======================
+let currentPlanName="", currentPlanAmount=0, currentPlanDaily=0;
+function buyPlan(name, amt, daily){
+  currentPlanName=name; currentPlanAmount=amt; currentPlanDaily=daily;
+  document.getElementById('buyText').innerText=`Send ₨${amt} to Easypaisa 03262550724.\nEnter Transaction ID below:`;
+  document.getElementById('trxInput').value='';
+  document.getElementById('buyModal').style.display='flex';
+}
+function closeBuyModal(){ document.getElementById('buyModal').style.display='none'; }
+function confirmBuy(){
+  const trx=document.getElementById('trxInput').value.trim();
+  if(!trx) return alert('Please enter TRX ID.');
+  const id = Date.now() + Math.random(); // Unique ID
+planRequests.push({id, plan: currentPlanName, trx, daily: currentPlanDaily, status: 'pending'});
+  saveToLS('planRequests', planRequests);
+  history.push(`${currentPlanName} - status: pending (TRX: ${trx})`);
+  saveToLS('history', history);
+  updateHistory(); closeBuyModal(); alert('Plan request submitted. Await admin approval.');
+}
+
+// ======================[ TASKS: Daily Claim per Plan ]======================
+function renderTasks() {
+  const container = document.getElementById('tasksContainer');
+  container.innerHTML = '';
+
+  
+
+  // ==== SHOW DAILY CLAIM BUTTONS FOR APPROVED PLANS ====
+  const approved = planRequests.filter(p => p.status === 'accepted');
+  const now = Date.now();
+
+  approved.forEach(pl => {
+    const last = lastClaimTimes[pl.id] || 0;
+    const canClaim = now - last >= 86400000;
+    const diff = 86400000 - (now - last);
+
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.innerHTML = `
+      <h4>Daily Claim - ${pl.plan}</h4>
+      <p>Daily Earning: ₨${pl.daily}</p>
+      <button class="btn" ${canClaim ? '' : 'disabled'} onclick="claimReward('${pl.id}', '${pl.plan}', ${pl.daily})">Claim Daily Earning</button>
+      ${canClaim ? '' : `<p id="timer-${pl.id}" style="margin-top:10px; color:#555;"></p>`}
+    `;
+    container.appendChild(card);
+
+    if (!canClaim) startTimer(pl.id, diff);
+  });
+
+  if (planRequests.filter(p => p.status === 'accepted').length === 0) {
+  container.innerHTML = "<div class='card'><p>No approved plans available for daily claim.</p></div>";
+}
+}
+function startTimer(id,diff){
+  const el=document.getElementById(`timer-${id}`);
+  if(!el) return;
+  function tick(){
+    const hrs=Math.floor(diff/3600000);
+    const mins=Math.floor((diff%3600000)/60000);
+    const secs=Math.floor((diff%60000)/1000);
+    el.textContent=`Next claim in ${hrs}h ${mins}m ${secs}s`;
+    diff-=1000; if(diff<0) renderTasks(); else setTimeout(tick,1000);
+  } tick();
+}
+  
+  
+function claimReward(planId, planName, amt){
+  amt = parseFloat(amt);  // ✅ Ensure number format
+
+  const now = Date.now();
+  const last = lastClaimTimes[planId] || 0;
+
+  if (now - last < 86400000) {
+    alert('Please wait 24 hours to claim again.');
+    return;
+  }
+
+  balance += amt;
+  saveToLS('balance', balance);
+  document.getElementById('balance').textContent = balance.toFixed(2);
+
+  lastClaimTimes[planId] = now;
+  saveToLS('lastClaimTimes', lastClaimTimes);
+
+  history.push(`+₨${amt.toFixed(2)} earned from ${planName} on ${new Date().toLocaleString()}`);
+  saveToLS('history', history);
+  updateHistory();
+  renderTasks();
+
+  alert('Reward claimed for ' + planName + '!');
+}
+
+// ======================[ WITHDRAW ]======================
+function submitWithdraw(){
+  const method=document.getElementById('method').value;
+  const acc=document.getElementById('accountNumber').value.trim();
+  const name=document.getElementById('accountName').value.trim();
+  const amount=parseFloat(document.getElementById('withdrawAmount').value);
+  if(!acc||!name||!amount||amount<=0) return alert('Fill all fields correctly!');
+  if(amount<300) return alert('Minimum withdrawal amount is PKR 300.');
+  if(amount>balance) return alert('Insufficient balance!');
+  const fee=amount*0.04, finalAmt=amount-fee;
+  balance-=amount; saveToLS('balance', balance);
+  document.getElementById('balance').textContent=balance.toFixed(2);
+  withdrawRequests.push({method, amount:finalAmt, account:acc, name, status:'pending'});
+  saveToLS('withdrawRequests', withdrawRequests);
+  history.push(`Withdrawal via ${method} - status: pending`);
+  saveToLS('history', history);
+  updateHistory(); document.getElementById('withdrawMsg').style.display='block';
+  setTimeout(()=>document.getElementById('withdrawMsg').style.display='none',4000);
+}
+
+// ======================[ ADMIN: Render & Actions ]======================
+function renderAdminPlans(){
+  const container=document.getElementById('planTab'); container.innerHTML='';
+  if(planRequests.length===0){ container.innerHTML='<p>No plan requests.</p>'; return; }
+  planRequests.forEach((req,i)=>{
+    const card=document.createElement('div'); card.className='card';
+    card.innerHTML=`<h4>${req.plan}</h4><p>Daily: ₨${req.daily}</p><p>TRX: <strong>${req.trx}</strong></p><p class='status'>Status: ${req.status}</p>`;
+    if(req.status==='pending'){
+      const accBtn=document.createElement('button'); accBtn.className='btn accept'; accBtn.textContent='Accept';
+      accBtn.onclick=()=>updatePlanStatus(i,'accepted');
+      const rejBtn=document.createElement('button'); rejBtn.className='btn reject'; rejBtn.textContent='Reject';
+      rejBtn.onclick=()=>updatePlanStatus(i,'rejected');
+      card.appendChild(accBtn); card.appendChild(rejBtn);
+    }
+    container.appendChild(card);
+  });
+}
+function renderAdminWithdrawals(){
+  const container=document.getElementById('withdrawTab'); container.innerHTML='';
+  if(withdrawRequests.length===0){ container.innerHTML='<p>No withdrawal requests.</p>'; return; }
+  withdrawRequests.forEach((req,i)=>{
+    const card=document.createElement('div'); card.className='card';
+    card.innerHTML=`<h4>${req.method}</h4><p>Amount: ₨${req.amount.toFixed(2)}</p><p>Account: ${req.account}</p><p>Name: ${req.name}</p><p class='status'>Status: ${req.status}</p>`;
+    if(req.status==='pending'){
+      const accBtn=document.createElement('button'); accBtn.className='btn accept'; accBtn.textContent='Accept';
+      accBtn.onclick=()=>updateWithdrawStatus(i,'accepted');
+      const rejBtn=document.createElement('button'); rejBtn.className='btn reject'; rejBtn.textContent='Reject';
+      rejBtn.onclick=()=>updateWithdrawStatus(i,'rejected');
+      card.appendChild(accBtn); card.appendChild(rejBtn);
+    }
+    container.appendChild(card);
+  });
+}
+function updatePlanStatus(index,status){ planRequests[index].status=status; saveToLS('planRequests', planRequests); renderAdminPlans(); renderTasks(); alert('Plan '+status+'.'); }
+function updateWithdrawStatus(index,status){ withdrawRequests[index].status=status; saveToLS('withdrawRequests', withdrawRequests); renderAdminWithdrawals(); alert('Withdrawal '+status+'.'); }
+
+// ======================[ MISC ]======================
+function share(){ alert('Share this app with your friends on WhatsApp!'); }
+function renderEarnings() {
+  const planUl = document.getElementById("planHistory");
+  const withdrawUl = document.getElementById("withdrawHistory");
+  if (!planUl || !withdrawUl) return;
+
+  planUl.innerHTML = "";
+  withdrawUl.innerHTML = "";
+
+  planRequests.slice().reverse().forEach(req => {
+    const color =
+      req.status === "accepted" ? "green" :
+      req.status === "rejected" ? "red" : "#555";
+    const li = document.createElement("li");
+    li.innerHTML = `${req.plan} (TRX: ${req.trx}) – <span style="color:${color};font-weight:bold;">${req.status}</span>`;
+    planUl.appendChild(li);
+  });
+
+  withdrawRequests.slice().reverse().forEach(req => {
+    const color =
+      req.status === "accepted" ? "green" :
+      req.status === "rejected" ? "red" : "#555";
+    const li = document.createElement("li");
+    li.innerHTML = `Withdrawal ${req.method} ₨${req.amount.toFixed(2)} – <span style="color:${color};font-weight:bold;">${req.status}</span>`;
+    withdrawUl.appendChild(li);
+  });
+}
+  
+  function updateHistory() { /* intentionally left blank */ }
+  
+
+// Listen to storage events from other tabs so UI stays in sync
+window.addEventListener('storage', e => {
+  const currentUser = localStorage.getItem("currentUser");
+  if (!currentUser) return;
+
+  const getKey = key => `${key}_${currentUser}`;
+  
+  if (e.key === getKey('planRequests')) {
+    planRequests = JSON.parse(e.newValue || '[]');
+    renderAdminPlans();
+    renderTasks();
+  }
+
+  if (e.key === getKey('withdrawRequests')) {
+    withdrawRequests = JSON.parse(e.newValue || '[]');
+    renderAdminWithdrawals();
+  }
+
+  if (e.key === getKey('balance')) {
+    balance = parseFloat(e.newValue || '0');
+    document.getElementById('balance').textContent = balance.toFixed(2);
+  }
+
+  if (e.key === getKey('history')) {
+    history = JSON.parse(e.newValue || '[]');
+    updateHistory();
+  }
+});
+
+// ======================[ INITIALIZE ]======================
+document.getElementById('balance').textContent=balance.toFixed(2);
+// ========== LOGIN / SIGNUP AUTH LOGIC ==========
+
+function handleAuth() {
+  const username = document.getElementById("auth-username").value.trim();
+  const password = document.getElementById("auth-password").value;
+
+  if (!username || !password) {
+    alert("Username aur Password dono likhna zaroori hai.");
+    return;
+  }
+
+  const storedUsers = JSON.parse(localStorage.getItem("userData") || "{}");
+
+  if (isSignupMode) {
+    if (storedUsers[username]) {
+      alert("Yeh username pehle se mojood hai. Login karein.");
+    } else {
+      storedUsers[username] = password;
+      localStorage.setItem("userData", JSON.stringify(storedUsers));
+      localStorage.setItem("loggedIn", "true");
+      localStorage.setItem("currentUser", username);
+      initApp();
+    }
+  } else {
+    if (storedUsers[username] === password) {
+      localStorage.setItem("loggedIn", "true");
+      localStorage.setItem("currentUser", username);
+      initApp();
+    } else {
+      alert("Username ya password ghalat hai.");
+    }
+  }
+}
+
+let isSignupMode = false;
+
+function toggleAuthMode() {
+  isSignupMode = !isSignupMode;
+  document.getElementById("auth-title").textContent = isSignupMode ? "Sign Up" : "Login";
+  document.querySelector("#auth-section button").textContent = isSignupMode ? "Sign Up" : "Login";
+  document.getElementById("toggle-auth").textContent = isSignupMode ? "Pehle se account hai? Login karein" : "Naya account banayein? Sign up";
+}
+
+function logout() {
+  localStorage.removeItem("loggedIn");
+  localStorage.removeItem("currentUser");
+  location.reload();
+}
+
+function initApp() {
+  document.getElementById("auth-section").style.display = "none";
+  document.getElementById("main-app").style.display = "block";
+  balance = parseFloat(localStorage.getItem(getUserKey("balance")) || "0");
+document.getElementById('balance').textContent = balance.toFixed(2);
+history = JSON.parse(localStorage.getItem(getUserKey("history")) || "[]");
+planRequests = JSON.parse(localStorage.getItem(getUserKey("planRequests")) || "[]");
+withdrawRequests = JSON.parse(localStorage.getItem(getUserKey("withdrawRequests")) || "[]");
+lastClaimTimes = JSON.parse(localStorage.getItem(getUserKey("lastClaimTimes")) || "{}");
+  renderPlans();
+  updateHistory();
+  renderTasks();
+}
+
+// ========== PAGE LOAD PAR LOGIN CHECK ==========
+window.onload = () => {
+  if (localStorage.getItem("loggedIn") === "true") {
+    initApp();
+  } else {
+    document.getElementById("auth-section").style.display = "block";
+    document.getElementById("main-app").style.display = "none";
+  }
+};
+  
+  </script>
+</body>
+</html>
